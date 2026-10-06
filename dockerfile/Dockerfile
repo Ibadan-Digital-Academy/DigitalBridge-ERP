@@ -13,9 +13,6 @@
 FROM frappe/build:version-16 AS base
 USER root
 # Ensure the frappe user and group exist.
-# The frappe/build image normally provides these,
-# but explicitly ensuring them prevents chown failures
-# during the build.
 RUN if ! getent group frappe >/dev/null 2>&1; then \
         groupadd --system frappe; \
     fi && \
@@ -128,6 +125,11 @@ RUN SITE_NAME="${SITE_NAME}" \
     ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
     DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD}" \
     /usr/local/bin/init.sh
+###############################################
+# Build Frappe and ERPNext assets
+###############################################
+RUN sudo -H -u frappe bash -lc \
+    'cd /home/frappe/frappe-bench && bench build'
 ###############################################
 # Runtime
 ###############################################
