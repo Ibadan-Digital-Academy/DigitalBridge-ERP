@@ -161,7 +161,8 @@ RUN SITE_NAME="${SITE_NAME}" \
     /usr/local/bin/init.sh
 
 ###############################################
-# Install Node.js and npm for asset compilation
+# Install Node.js, npm and Yarn
+# Required for Frappe/ERPNext asset compilation
 ###############################################
 
 RUN apt-get update \
@@ -169,8 +170,10 @@ RUN apt-get update \
     apt-get install -y --no-install-recommends \
     nodejs \
     npm \
+    && npm install -g yarn \
     && node --version \
     && npm --version \
+    && yarn --version \
     && rm -rf /var/lib/apt/lists/*
 
 ###############################################
