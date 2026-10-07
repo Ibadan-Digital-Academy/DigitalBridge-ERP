@@ -171,6 +171,8 @@ RUN apt-get update \
     nodejs \
     npm \
     && npm install -g yarn \
+    && ln -sf /usr/local/bin/yarn /usr/bin/yarn \
+    && ln -sf /usr/local/bin/yarnpkg /usr/bin/yarnpkg \
     && node --version \
     && npm --version \
     && yarn --version \
