@@ -12,7 +12,10 @@ FROM frappe/build:version-16 AS base
 
 USER root
 
-# Ensure the frappe user and group exist.
+###############################################
+# Ensure frappe user and group exist
+###############################################
+
 RUN if ! getent group frappe >/dev/null 2>&1; then \
         groupadd --system frappe; \
     fi && \
@@ -28,7 +31,7 @@ RUN if ! getent group frappe >/dev/null 2>&1; then \
     chown -R frappe:frappe /home/frappe
 
 ###############################################
-# Adding Dependencies
+# Dependencies
 ###############################################
 
 RUN apt-get update \
@@ -69,7 +72,7 @@ RUN bench init \
     echo "{}" > sites/common_site_config.json
 
 ###############################################
-# FINALIZED
+# Finalized
 ###############################################
 
 WORKDIR /home/frappe/frappe-bench
@@ -83,6 +86,10 @@ USER frappe
 FROM base AS all-in-one
 
 USER root
+
+###############################################
+# Install runtime dependencies
+###############################################
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive \
@@ -101,7 +108,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ###############################################
-# COPY FILES
+# Copy configuration files
 ###############################################
 
 COPY --chown=frappe:frappe --chmod=0755 \
@@ -135,7 +142,7 @@ ARG DB_ROOT_PASSWORD=admin
 ENV SITE_NAME=${SITE_NAME}
 
 ###############################################
-# COPY FILES
+# Copy initialization files
 ###############################################
 
 COPY --chown=frappe:frappe --chmod=0755 \
@@ -156,7 +163,7 @@ RUN SITE_NAME="${SITE_NAME}" \
     /usr/local/bin/init.sh
 
 ###############################################
-# Install Node.js, npm and Yarn
+# Install Node.js and npm
 ###############################################
 
 RUN apt-get update \
@@ -164,21 +171,34 @@ RUN apt-get update \
     apt-get install -y --no-install-recommends \
     nodejs \
     npm \
-    && npm install -g yarn \
-    && ln -sf /usr/local/bin/yarn /usr/bin/yarn \
-    && ln -sf /usr/local/bin/yarnpkg /usr/bin/yarnpkg \
     && node --version \
     && npm --version \
-    && yarn --version \
     && rm -rf /var/lib/apt/lists/*
 
 ###############################################
-# Make Yarn available to frappe
+# Install Yarn 1.x
+#
+# npm 11 requires --allow-scripts=yarn
+# otherwise Yarn's executable is not created.
 ###############################################
 
-RUN echo 'export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"' \
-    >> /home/frappe/.bashrc && \
-    chown frappe:frappe /home/frappe/.bashrc
+RUN npm install -g --allow-scripts=yarn yarn@1.22.22 \
+    && npm root -g \
+    && npm prefix -g
+
+###############################################
+# Create a guaranteed Yarn executable
+###############################################
+
+RUN YARN_ROOT="$(npm root -g)/yarn" && \
+    echo "Yarn root: ${YARN_ROOT}" && \
+    test -f "${YARN_ROOT}/bin/yarn.js" && \
+    printf '#!/bin/sh\nexec node "%s" "$@"\n' \
+    "${YARN_ROOT}/bin/yarn.js" \
+    > /usr/local/bin/yarn && \
+    chmod +x /usr/local/bin/yarn && \
+    ln -sf /usr/local/bin/yarn /usr/bin/yarn && \
+    /usr/local/bin/yarn --version
 
 ###############################################
 # Build Frappe and ERPNext assets
@@ -188,12 +208,16 @@ RUN sudo -H -u frappe env \
     PATH="/usr/local/bin:/usr/bin:/bin:$PATH" \
     bash -lc \
     'cd /home/frappe/frappe-bench && \
+    echo "Checking Node.js..." && \
     which node && \
-    which npm && \
-    which yarn && \
     node --version && \
+    echo "Checking npm..." && \
+    which npm && \
     npm --version && \
+    echo "Checking Yarn..." && \
+    which yarn && \
     yarn --version && \
+    echo "Building ERPNext assets..." && \
     bench build'
 
 ###############################################
