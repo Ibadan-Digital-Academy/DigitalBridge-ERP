@@ -2,11 +2,6 @@
 
 ###############################################
 # ERPNext image - single multi-stage source
-#
-# Three chained stages:
-#   base
-#   all-in-one
-#   pre-install
 ###############################################
 
 ###############################################
@@ -162,7 +157,6 @@ RUN SITE_NAME="${SITE_NAME}" \
 
 ###############################################
 # Install Node.js, npm and Yarn
-# Required for Frappe/ERPNext asset compilation
 ###############################################
 
 RUN apt-get update \
@@ -179,11 +173,28 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ###############################################
+# Make Yarn available to frappe
+###############################################
+
+RUN echo 'export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"' \
+    >> /home/frappe/.bashrc && \
+    chown frappe:frappe /home/frappe/.bashrc
+
+###############################################
 # Build Frappe and ERPNext assets
 ###############################################
 
-RUN sudo -H -u frappe bash -lc \
-    'cd /home/frappe/frappe-bench && bench build'
+RUN sudo -H -u frappe env \
+    PATH="/usr/local/bin:/usr/bin:/bin:$PATH" \
+    bash -lc \
+    'cd /home/frappe/frappe-bench && \
+    which node && \
+    which npm && \
+    which yarn && \
+    node --version && \
+    npm --version && \
+    yarn --version && \
+    bench build'
 
 ###############################################
 # Runtime
