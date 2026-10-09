@@ -94,6 +94,14 @@ RUN apt-get update \
     mariadb-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Ensure Node.js has a stable executable path
+RUN set -eux; \
+    NODE_BIN="$(find /home/frappe/.nvm/versions/node -type f -path '*/bin/node' -print -quit)"; \
+    test -n "$NODE_BIN"; \
+    test -x "$NODE_BIN"; \
+    ln -sf "$NODE_BIN" /usr/local/bin/node; \
+    /usr/local/bin/node --version
+
 ###############################################
 # Copy configuration files
 ###############################################
