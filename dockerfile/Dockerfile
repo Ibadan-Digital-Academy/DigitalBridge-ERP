@@ -1,3 +1,4 @@
+
 # syntax=docker/dockerfile:1
 
 ###############################################
@@ -12,10 +13,7 @@ FROM frappe/build:version-16 AS base
 
 USER root
 
-###############################################
-# Ensure frappe user and group exist
-###############################################
-
+# Ensure the frappe user and group exist
 RUN if ! getent group frappe >/dev/null 2>&1; then \
         groupadd --system frappe; \
     fi && \
@@ -36,8 +34,7 @@ RUN if ! getent group frappe >/dev/null 2>&1; then \
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y -q \
-    sudo \
+    apt-get install -y -q sudo \
     && echo "frappe ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
     && apt-get autoremove --purge -y \
     && apt-get clean -y \
@@ -45,7 +42,7 @@ RUN apt-get update \
     && rm -rf /tmp/*
 
 ###############################################
-# Init Bench
+# Initialize Bench
 ###############################################
 
 USER frappe
@@ -71,13 +68,7 @@ RUN bench init \
     ${ERPNEXT_REPO} && \
     echo "{}" > sites/common_site_config.json
 
-###############################################
-# Finalized
-###############################################
-
 WORKDIR /home/frappe/frappe-bench
-
-USER frappe
 
 ###############################################
 # Stage 2: all-in-one
@@ -86,10 +77,6 @@ USER frappe
 FROM base AS all-in-one
 
 USER root
-
-###############################################
-# Install runtime dependencies
-###############################################
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive \
@@ -130,10 +117,6 @@ COPY --chown=frappe:frappe \
 FROM all-in-one AS pre-install
 
 USER root
-
-###############################################
-# Build-time site configuration
-###############################################
 
 ARG SITE_NAME=default.site
 ARG ADMIN_PASSWORD=admin
@@ -177,9 +160,6 @@ RUN apt-get update \
 
 ###############################################
 # Install Yarn 1.x
-#
-# npm 11 requires --allow-scripts=yarn
-# otherwise Yarn's executable is not created.
 ###############################################
 
 RUN npm install -g --allow-scripts=yarn yarn@1.22.22 \
@@ -187,7 +167,7 @@ RUN npm install -g --allow-scripts=yarn yarn@1.22.22 \
     && npm prefix -g
 
 ###############################################
-# Create a guaranteed Yarn executable
+# Create Yarn executable
 ###############################################
 
 RUN YARN_ROOT="$(npm root -g)/yarn" && \
@@ -202,15 +182,19 @@ RUN YARN_ROOT="$(npm root -g)/yarn" && \
 
 ###############################################
 # Build Frappe and ERPNext assets
+# Prioritize the existing Node 24 installation.
+# Use bash -c to preserve the supplied PATH.
 ###############################################
 
 RUN sudo -H -u frappe env \
-    PATH="/usr/local/bin:/usr/bin:/bin:$PATH" \
-    bash -lc \
-    'cd /home/frappe/frappe-bench && \
-    echo "Checking Node.js..." && \
+    PATH="/home/frappe/.nvm/current/bin:/usr/local/bin:/usr/bin:/bin" \
+    bash -c \
+    'set -e && \
+    cd /home/frappe/frappe-bench && \
+    echo "Checking Node.js version..." && \
     which node && \
     node --version && \
+    node -e "if (Number(process.versions.node.split(\".\")[0]) < 24) process.exit(1)" && \
     echo "Checking npm..." && \
     which npm && \
     npm --version && \
